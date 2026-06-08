@@ -101,7 +101,7 @@ def build_bus_section(services: list[dict], buses: set) -> str:
             lines.append(
                 f"*Bus {bus}:* {format_eta(nb1)}  ·  {format_eta(nb2)}  ·  {format_eta(nb3)}"
             )
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 # ── CCL Timetable ─────────────────────────────────────────────────────────────
 CCL_DHOBY_WEEKDAY = [
@@ -150,7 +150,7 @@ async def send_update(bot: Bot, profile_key: str = None):
     profile = PROFILES[key]
 
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 10}"
+    header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 15}"
 
     try:
         services    = await fetch_bus_arrivals(profile["bus_stop"])
