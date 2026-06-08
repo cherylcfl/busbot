@@ -1,7 +1,7 @@
 import os
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import httpx
 from telegram import Bot
@@ -16,29 +16,16 @@ LTA_API_KEY      = os.environ["LTA_API_KEY"]
 BUS_STOP_CODE = "81189"
 BUS_SERVICES  = {"10", "16", "16M"}
 
-# Dakota CC8 — platform CDKT_A = towards Dhoby Ghaut (counter-clockwise)
-SMRT_STATION  = "Dakota"
-MRT_PLATFORM  = "CDKT_A"
-
 SGT = pytz.timezone("Asia/Singapore")
 
 logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO)
 log = logging.getLogger(__name__)
 
-# ── Shared HTTP headers ────────────────────────────────────────────────────────
-BROWSER_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-        "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
-    ),
-    "Accept": "application/json, text/plain, */*",
-}
-
 # ── LTA DataMall — Bus ────────────────────────────────────────────────────────
 LTA_BUS_URL = "https://datamall2.mytransport.sg/ltaodataservice/v3/BusArrival"
 
 async def fetch_bus_arrivals() -> list[dict]:
-    headers = {**BROWSER_HEADERS, "AccountKey": LTA_API_KEY.strip()}
+    headers = {"AccountKey": LTA_API_KEY.strip()}
     params  = {"BusStopCode": BUS_STOP_CODE}
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.get(LTA_BUS_URL, headers=headers, params=params)
@@ -57,9 +44,6 @@ def format_eta(next_bus: dict) -> str:
     except Exception:
         return "?"
 
-def load_icon(load: str) -> str:
-    return {"SEA": "🟢", "SDA": "🟡", "LSD": "🔴"}.get(load, "⬜")
-
 def build_bus_section(services: list[dict]) -> str:
     lines = ["🚌 *Buses at Stop 81189*\n"]
     matched = {s["ServiceNo"].upper(): s for s in services
@@ -73,53 +57,62 @@ def build_bus_section(services: list[dict]) -> str:
             nb2 = svc.get("NextBus2", {})
             nb3 = svc.get("NextBus3", {})
             lines.append(
-                f"*Bus {bus}*\n"
-                f"  {load_icon(nb1.get('Load',''))} {format_eta(nb1)}"
-                f"   {load_icon(nb2.get('Load',''))} {format_eta(nb2)}"
-                f"   {load_icon(nb3.get('Load',''))} {format_eta(nb3)}"
+                f"*Bus {bus}:* {format_eta(nb1)}  ·  {format_eta(nb2)}  ·  {format_eta(nb3)}"
             )
-        lines.append("\n_🟢 Seats  🟡 Standing  🔴 Limited_")
     return "\n".join(lines)
 
-# ── SMRT Train Arrival API ─────────────────────────────────────────────────────
-# Returns: {"results":[{"platform_ID":"CDKT_A","next_train_arr":"3",
-#           "subsequent_train_arr":"8","third_train_arr":"14","status":1},...]}
-SMRT_URL = "https://trainarrivalweb.smrt.com.sg/webapi/rv1/TrainArrival/{station}"
+# ── Circle Line timetable — Dakota towards Dhoby Ghaut ───────────────────────
+# Departure times from Dakota (CC8) towards Dhoby Ghaut (counter-clockwise)
+# Source: SMRT official timetable, weekday morning window
+# Format: (hour, minute)
+CCL_DHOBY_WEEKDAY = [
+    (5,16),(5,22),(5,28),(5,34),(5,40),(5,46),(5,52),(5,58),
+    (6, 4),(6,10),(6,16),(6,21),(6,26),(6,31),(6,36),(6,40),
+    (6,44),(6,48),(6,52),(6,56),(7, 0),(7, 3),(7, 6),(7, 9),
+    (7,12),(7,15),(7,18),(7,21),(7,24),(7,27),(7,30),(7,33),
+    (7,36),(7,39),(7,42),(7,45),(7,48),(7,51),(7,54),(7,57),
+    (8, 0),(8, 3),(8, 6),(8, 9),(8,12),(8,15),(8,18),(8,21),
+    (8,24),(8,27),(8,30),(8,33),(8,36),(8,39),(8,42),(8,45),
+    (8,48),(8,51),(8,54),(8,57),(9, 0),(9, 3),(9, 6),(9, 9),
+    (9,12),(9,15),(9,18),(9,21),(9,24),(9,27),(9,30),
+]
 
-async def fetch_train_arrivals() -> list[dict]:
-    url = SMRT_URL.format(station=SMRT_STATION)
-    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-        r = await client.get(url, headers=BROWSER_HEADERS)
-        r.raise_for_status()
-        return r.json().get("results", [])
+def next_trains_from_timetable(n: int = 3) -> list[str]:
+    """Return next n train arrival times as 'X min' strings."""
+    now = datetime.now(SGT)
+    upcoming = []
+    for (h, m) in CCL_DHOBY_WEEKDAY:
+        t = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        diff_mins = int((t - now).total_seconds() / 60)
+        if diff_mins >= -1:  # include trains arriving now
+            upcoming.append(diff_mins)
+        if len(upcoming) >= n:
+            break
+    results = []
+    for mins in upcoming[:n]:
+        if mins <= 0:
+            results.append("Arr")
+        else:
+            results.append(f"{mins} min")
+    return results if results else ["–"]
 
-def fmt_mins(val: str) -> str:
-    if not val or val in ("", "-", "0"):
-        return "–"
-    try:
-        m = int(val)
-        return "Arr" if m <= 0 else f"{m} min"
-    except Exception:
-        return str(val)
-
-def build_train_section(platforms: list[dict]) -> str:
+def build_train_section() -> str:
+    now = datetime.now(SGT)
     lines = ["\n🚇 *Circle Line at Dakota (→ Dhoby Ghaut)*\n"]
-    target = [p for p in platforms if p.get("platform_ID") == MRT_PLATFORM]
 
-    if not target:
-        lines.append("_No train data available._")
+    # Only show on weekdays
+    if now.weekday() >= 5:
+        lines.append("_No service — weekend schedule not loaded._")
         return "\n".join(lines)
 
-    p = target[0]
-    if p.get("status", 1) == 0:
-        lines.append("⚠️ _Service disruption on this platform._")
-        return "\n".join(lines)
+    trains = next_trains_from_timetable(3)
+    if not trains or trains == ["–"]:
+        lines.append("_No more trains in timetable window._")
+    else:
+        first = f"*{trains[0]}*"
+        rest  = "  ·  ".join(trains[1:])
+        lines.append(f"Next trains: {first}" + (f"  ·  {rest}" if rest else ""))
 
-    t1 = fmt_mins(str(p.get("next_train_arr", "")))
-    t2 = fmt_mins(str(p.get("subsequent_train_arr", "")))
-    t3 = fmt_mins(str(p.get("third_train_arr", "")))
-
-    lines.append(f"Next trains: *{t1}*  ·  {t2}  ·  {t3}")
     return "\n".join(lines)
 
 # ── Combined message ───────────────────────────────────────────────────────────
@@ -135,13 +128,7 @@ async def send_update(bot: Bot) -> None:
         log.error("Bus fetch error: %s", e)
         bus_section = "🚌 _Bus data unavailable._"
 
-    try:
-        train_platforms = await fetch_train_arrivals()
-        train_section   = build_train_section(train_platforms)
-        log.info("Train data OK")
-    except Exception as e:
-        log.error("Train fetch error: %s", e)
-        train_section = "\n🚇 _Train data unavailable._"
+    train_section = build_train_section()
 
     full_msg = f"{header}\n\n{bus_section}{train_section}"
     await bot.send_message(
