@@ -1,0 +1,8 @@
+services:
+  busbot:
+    build: .
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - LTA_API_KEY=${LTA_API_KEY}
