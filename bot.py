@@ -150,7 +150,7 @@ async def send_update(bot: Bot, profile_key: str = None):
     profile = PROFILES[key]
 
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 30}"
+    header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 10}"
 
     try:
         services    = await fetch_bus_arrivals(profile["bus_stop"])
