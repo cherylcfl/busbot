@@ -1,7 +1,6 @@
 import os
 import logging
 import asyncio
-import re
 from datetime import datetime
 import pytz
 import httpx
@@ -17,22 +16,29 @@ LTA_API_KEY      = os.environ["LTA_API_KEY"]
 BUS_STOP_CODE = "81189"
 BUS_SERVICES  = {"10", "16", "16M"}
 
-# Dakota CC8 — towards Dhoby Ghaut (counter-clockwise)
-# MyTransport.sg uses numeric station ID: Dakota = 10008
-MRT_STATION_ID   = "10008"
-MRT_STATION_NAME = "Dakota"
-MRT_DIRECTION    = "towards Dhoby Ghaut"
+# Dakota CC8 — platform CDKT_A = towards Dhoby Ghaut (counter-clockwise)
+SMRT_STATION  = "Dakota"
+MRT_PLATFORM  = "CDKT_A"
 
 SGT = pytz.timezone("Asia/Singapore")
 
 logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO)
 log = logging.getLogger(__name__)
 
+# ── Shared HTTP headers ────────────────────────────────────────────────────────
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+    ),
+    "Accept": "application/json, text/plain, */*",
+}
+
 # ── LTA DataMall — Bus ────────────────────────────────────────────────────────
 LTA_BUS_URL = "https://datamall2.mytransport.sg/ltaodataservice/v3/BusArrival"
 
 async def fetch_bus_arrivals() -> list[dict]:
-    headers = {"AccountKey": LTA_API_KEY.strip()}
+    headers = {**BROWSER_HEADERS, "AccountKey": LTA_API_KEY.strip()}
     params  = {"BusStopCode": BUS_STOP_CODE}
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.get(LTA_BUS_URL, headers=headers, params=params)
@@ -62,10 +68,10 @@ def build_bus_section(services: list[dict]) -> str:
         lines.append("_No data for buses 10, 16, 16M._")
     else:
         for bus in sorted(matched.keys()):
-            svc  = matched[bus]
-            nb1  = svc.get("NextBus",  {})
-            nb2  = svc.get("NextBus2", {})
-            nb3  = svc.get("NextBus3", {})
+            svc = matched[bus]
+            nb1 = svc.get("NextBus",  {})
+            nb2 = svc.get("NextBus2", {})
+            nb3 = svc.get("NextBus3", {})
             lines.append(
                 f"*Bus {bus}*\n"
                 f"  {load_icon(nb1.get('Load',''))} {format_eta(nb1)}"
@@ -75,67 +81,45 @@ def build_bus_section(services: list[dict]) -> str:
         lines.append("\n_🟢 Seats  🟡 Standing  🔴 Limited_")
     return "\n".join(lines)
 
-# ── MyTransport.sg — MRT ──────────────────────────────────────────────────────
-# Public endpoint used by mytransport.sg journey planner
-MYTRANSPORT_URL = (
-    "https://www.mytransport.sg/content/mytransport/home/commuting/"
-    "train-time-table.html"
-)
-TRAIN_API_URL = "https://www.mytransport.sg/api/TrainArrival/GetTrainArrival"
+# ── SMRT Train Arrival API ─────────────────────────────────────────────────────
+# Returns: {"results":[{"platform_ID":"CDKT_A","next_train_arr":"3",
+#           "subsequent_train_arr":"8","third_train_arr":"14","status":1},...]}
+SMRT_URL = "https://trainarrivalweb.smrt.com.sg/webapi/rv1/TrainArrival/{station}"
 
 async def fetch_train_arrivals() -> list[dict]:
-    """
-    Calls the MyTransport.sg train arrival API.
-    Returns list of arrival dicts with keys: Line, Direction, Timing
-    """
-    params = {"stationCode": f"CC{MRT_STATION_ID}"}
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://www.mytransport.sg/",
-    }
+    url = SMRT_URL.format(station=SMRT_STATION)
     async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-        r = await client.get(TRAIN_API_URL, params=params, headers=headers)
+        r = await client.get(url, headers=BROWSER_HEADERS)
         r.raise_for_status()
-        data = r.json()
-        return data.get("TrainServiceInformations", [])
+        return r.json().get("results", [])
 
-def build_train_section(arrivals: list[dict]) -> str:
+def fmt_mins(val: str) -> str:
+    if not val or val in ("", "-", "0"):
+        return "–"
+    try:
+        m = int(val)
+        return "Arr" if m <= 0 else f"{m} min"
+    except Exception:
+        return str(val)
+
+def build_train_section(platforms: list[dict]) -> str:
     lines = ["\n🚇 *Circle Line at Dakota (→ Dhoby Ghaut)*\n"]
+    target = [p for p in platforms if p.get("platform_ID") == MRT_PLATFORM]
 
-    # Filter for CCL towards Dhoby Ghaut — direction typically "1" or contains "Dhoby"
-    dhoby = [a for a in arrivals
-             if "dhoby" in str(a.get("Destination", "")).lower()
-             or str(a.get("Direction", "")) == "1"]
-
-    if not dhoby:
-        # Show all CCL arrivals if direction filter finds nothing
-        dhoby = arrivals
-
-    if not dhoby:
+    if not target:
         lines.append("_No train data available._")
         return "\n".join(lines)
 
-    times = []
-    for a in dhoby[:3]:
-        t = a.get("Timing") or a.get("ArrivalTime") or a.get("EstimatedArrival", "")
-        if not t:
-            continue
-        try:
-            # Try parsing as ISO datetime
-            dt   = datetime.fromisoformat(t).astimezone(SGT)
-            mins = int((dt - datetime.now(SGT)).total_seconds() / 60)
-            times.append("Arr" if mins <= 0 else f"{mins} min")
-        except Exception:
-            # If it's already a "X min" string, use as-is
-            times.append(str(t))
+    p = target[0]
+    if p.get("status", 1) == 0:
+        lines.append("⚠️ _Service disruption on this platform._")
+        return "\n".join(lines)
 
-    if times:
-        first = f"*{times[0]}*"
-        rest  = "  ·  ".join(times[1:])
-        lines.append(f"Next trains: {first}" + (f"  ·  {rest}" if rest else ""))
-    else:
-        lines.append("_No arrival times available._")
+    t1 = fmt_mins(str(p.get("next_train_arr", "")))
+    t2 = fmt_mins(str(p.get("subsequent_train_arr", "")))
+    t3 = fmt_mins(str(p.get("third_train_arr", "")))
 
+    lines.append(f"Next trains: *{t1}*  ·  {t2}  ·  {t3}")
     return "\n".join(lines)
 
 # ── Combined message ───────────────────────────────────────────────────────────
@@ -146,15 +130,15 @@ async def send_update(bot: Bot) -> None:
     try:
         bus_services = await fetch_bus_arrivals()
         bus_section  = build_bus_section(bus_services)
-        log.info("Bus data fetched OK")
+        log.info("Bus data OK")
     except Exception as e:
         log.error("Bus fetch error: %s", e)
         bus_section = "🚌 _Bus data unavailable._"
 
     try:
-        train_arrivals = await fetch_train_arrivals()
-        train_section  = build_train_section(train_arrivals)
-        log.info("Train data fetched OK")
+        train_platforms = await fetch_train_arrivals()
+        train_section   = build_train_section(train_platforms)
+        log.info("Train data OK")
     except Exception as e:
         log.error("Train fetch error: %s", e)
         train_section = "\n🚇 _Train data unavailable._"
