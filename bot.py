@@ -45,7 +45,7 @@ def format_eta(next_bus: dict) -> str:
         return "?"
 
 def build_bus_section(services: list[dict]) -> str:
-    lines = ["🚌 *Buses at Stop 81189*\n"]
+    lines = ["🚌 *Buses at Stop 81189 - Dakota Stn Exit B*\n"]
     matched = {s["ServiceNo"].upper(): s for s in services
                if s["ServiceNo"].upper() in BUS_SERVICES}
     if not matched:
@@ -118,7 +118,7 @@ def build_train_section() -> str:
 # ── Combined message ───────────────────────────────────────────────────────────
 async def send_update(bot: Bot) -> None:
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *Morning Commute Update* — {now_str}\n{'─' * 30}"
+    header  = f"🕐 *Morning Commute Update* — {now_str}\n{'─' * 10}"
 
     try:
         bus_services = await fetch_bus_arrivals()
@@ -147,7 +147,7 @@ async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE):
         "👋 *Morning Commute Bot*\n\n"
         "Automatic updates Mon–Fri, 8:15–9:00 am:\n\n"
         "🚌 Buses *10, 16 & 16M* at stop 81189\n"
-        "🚇 Circle Line at *Dakota* → Dhoby Ghaut\n\n"
+        "🚇 Circle Line at *Dakota* → Dhoby Ghaut\n"
         "Use /now for an instant update anytime.",
         parse_mode="Markdown"
     )
@@ -158,12 +158,12 @@ def setup_scheduler(app: Application) -> AsyncIOScheduler:
     scheduler.add_job(
         lambda: asyncio.ensure_future(send_update(app.bot)),
         trigger="cron", day_of_week="mon-fri",
-        hour="8", minute="15,20,25,30,35,40,45,50,55",
+        hour="23", minute="15,20,25,30,35,40,45,50,55",
     )
     scheduler.add_job(
         lambda: asyncio.ensure_future(send_update(app.bot)),
         trigger="cron", day_of_week="mon-fri",
-        hour="9", minute="0",
+        hour="23", minute="0",
     )
     return scheduler
 
