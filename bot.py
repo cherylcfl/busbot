@@ -57,9 +57,9 @@ def build_bus_section(services: list[dict]) -> str:
             nb2 = svc.get("NextBus2", {})
             nb3 = svc.get("NextBus3", {})
             lines.append(
-                f"*Bus {bus}:* 🟢 {format_eta(nb1)}  ·  🟢 {format_eta(nb2)}  ·  🟢 {format_eta(nb3)}"
+                f"*Bus {bus}:* 🟢 {format_eta(nb1)}  🟢 {format_eta(nb2)}  🟢 {format_eta(nb3)}"
             )
-    return "\n".join(lines)
+    return.join(lines)
 
 # ── Circle Line timetable — Dakota towards Dhoby Ghaut ───────────────────────
 # Departure times from Dakota (CC8) towards Dhoby Ghaut (counter-clockwise)
@@ -144,7 +144,7 @@ async def cmd_now(update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 *Morning Commute Bot*\n\n"
+        "👋 *Morning Commute Bot*\n"
         "Automatic updates Mon–Fri, 8:15–9:00 am:\n"
         "🚌 Buses *10, 16 & 16M* at stop 81189\n"
         "🚇 Circle Line at *Dakota* → Dhoby Ghaut\n"
