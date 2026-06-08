@@ -59,7 +59,7 @@ def build_bus_section(services: list[dict]) -> str:
             lines.append(
                 f"*Bus {bus}:* 🟢 {format_eta(nb1)}  🟢 {format_eta(nb2)}  🟢 {format_eta(nb3)}"
             )
-    return.join(lines)
+    return"\n".join(lines)
 
 # ── Circle Line timetable — Dakota towards Dhoby Ghaut ───────────────────────
 # Departure times from Dakota (CC8) towards Dhoby Ghaut (counter-clockwise)
@@ -98,12 +98,12 @@ def next_trains_from_timetable(n: int = 3) -> list[str]:
 
 def build_train_section() -> str:
     now = datetime.now(SGT)
-    lines = ["\n🚇 *Circle Line at Dakota (→ Dhoby Ghaut)*\n"]
+    lines = ["\n🚇 *Circle Line at Dakota (→ Dhoby Ghaut)*"]
 
     # Only show on weekdays
     if now.weekday() >= 5:
         lines.append("_No service — weekend schedule not loaded._")
-        return.join(lines)
+        return"\n".join(lines)
 
     trains = next_trains_from_timetable(3)
     if not trains or trains == ["–"]:
@@ -113,12 +113,12 @@ def build_train_section() -> str:
         rest  = "  ·  ".join(trains[1:])
         lines.append(f"Next trains: {first}" + (f"  ·  {rest}" if rest else ""))
 
-    return.join(lines)
+    return"\n".join(lines)
 
 # ── Combined message ───────────────────────────────────────────────────────────
 async def send_update(bot: Bot) -> None:
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *Morning Commute Update* — {now_str}\n"
+    header  = f"🕐 *Morning Commute Update* — {now_str}"
 
     try:
         bus_services = await fetch_bus_arrivals()
@@ -130,7 +130,7 @@ async def send_update(bot: Bot) -> None:
 
     train_section = build_train_section()
 
-    full_msg = f"{header}\n\n{bus_section}{train_section}"
+    full_msg = f"{header}\n{bus_section}\n{train_section}"
     await bot.send_message(
         chat_id    = TELEGRAM_CHAT_ID,
         text       = full_msg,
