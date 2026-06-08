@@ -40,12 +40,15 @@ def format_eta(next_bus: dict) -> str:
         eta_dt  = datetime.fromisoformat(eta_str).astimezone(SGT)
         now_sgt = datetime.now(SGT)
         mins    = int((eta_dt - now_sgt).total_seconds() / 60)
-        return "Arr" if mins <= 0 else f"{mins} min"
+        time_str = eta_dt.strftime("%I:%M%p").lstrip("0").lower()
+        if mins <= 0:
+            return f"Arr ({time_str})"
+        return f"{mins} min ({time_str})"
     except Exception:
         return "?"
 
 def build_bus_section(services: list[dict]) -> str:
-    lines = ["🚌 *Buses at Stop 81189 - Dakota Stn Exit B*\n"]
+    lines = ["🚌 *Buses - Dakota Stn Exit B*"]
     matched = {s["ServiceNo"].upper(): s for s in services
                if s["ServiceNo"].upper() in BUS_SERVICES}
     if not matched:
@@ -118,7 +121,7 @@ def build_train_section() -> str:
 # ── Combined message ───────────────────────────────────────────────────────────
 async def send_update(bot: Bot) -> None:
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *Morning Commute Update* — {now_str}"
+    header  = f"🕐 *Morning Commute Update* — {now_str}\n"
 
     try:
         bus_services = await fetch_bus_arrivals()
