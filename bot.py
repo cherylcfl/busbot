@@ -45,7 +45,7 @@ def format_eta(next_bus: dict) -> str:
         return "?"
 
 def build_bus_section(services: list[dict]) -> str:
-    lines = ["🚌 *Buses at Stop 81189*\n"]
+    lines = ["🚌 *Buses at Stop 81189 - Dakota Stn Exit B*\n"]
     matched = {s["ServiceNo"].upper(): s for s in services
                if s["ServiceNo"].upper() in BUS_SERVICES}
     if not matched:
@@ -57,7 +57,7 @@ def build_bus_section(services: list[dict]) -> str:
             nb2 = svc.get("NextBus2", {})
             nb3 = svc.get("NextBus3", {})
             lines.append(
-                f"*Bus {bus}:* {format_eta(nb1)}  ·  {format_eta(nb2)}  ·  {format_eta(nb3)}"
+                f"*Bus {bus}:* 🟢 {format_eta(nb1)}  ·  🟢 {format_eta(nb2)}  ·  🟢 {format_eta(nb3)}"
             )
     return "\n".join(lines)
 
@@ -145,9 +145,9 @@ async def cmd_now(update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 *Morning Commute Bot*\n\n"
-        "Automatic updates Mon–Fri, 8:15–9:00 am:\n\n"
+        "Automatic updates Mon–Fri, 8:15–9:00 am:\n"
         "🚌 Buses *10, 16 & 16M* at stop 81189\n"
-        "🚇 Circle Line at *Dakota* → Dhoby Ghaut\n\n"
+        "🚇 Circle Line at *Dakota* → Dhoby Ghaut\n"
         "Use /now for an instant update anytime.",
         parse_mode="Markdown"
     )
@@ -165,7 +165,7 @@ def setup_scheduler(app: Application, loop: asyncio.AbstractEventLoop) -> AsyncI
     )
     scheduler.add_job(
         fire, trigger="cron", day_of_week="mon-fri",
-        hour="24", minute="0",
+        hour="0", minute="0",
     )
     return scheduler
 
