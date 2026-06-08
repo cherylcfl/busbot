@@ -161,11 +161,11 @@ def setup_scheduler(app: Application, loop: asyncio.AbstractEventLoop) -> AsyncI
 
     scheduler.add_job(
         fire, trigger="cron", day_of_week="mon-fri",
-        hour="8", minute="15,20,25,30,35,40,45,50,55",
+        hour="23", minute="15,20,25,30,35,40,45,50,55",
     )
     scheduler.add_job(
         fire, trigger="cron", day_of_week="mon-fri",
-        hour="9", minute="0",
+        hour="24", minute="0",
     )
     return scheduler
 
