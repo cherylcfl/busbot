@@ -103,7 +103,7 @@ def build_train_section() -> str:
     # Only show on weekdays
     if now.weekday() >= 5:
         lines.append("_No service — weekend schedule not loaded._")
-        return "\n".join(lines)
+        return.join(lines)
 
     trains = next_trains_from_timetable(3)
     if not trains or trains == ["–"]:
@@ -113,12 +113,12 @@ def build_train_section() -> str:
         rest  = "  ·  ".join(trains[1:])
         lines.append(f"Next trains: {first}" + (f"  ·  {rest}" if rest else ""))
 
-    return "\n".join(lines)
+    return.join(lines)
 
 # ── Combined message ───────────────────────────────────────────────────────────
 async def send_update(bot: Bot) -> None:
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *Morning Commute Update* — {now_str}\n{'─' * 30}"
+    header  = f"🕐 *Morning Commute Update* — {now_str}\n"
 
     try:
         bus_services = await fetch_bus_arrivals()
@@ -161,11 +161,11 @@ def setup_scheduler(app: Application, loop: asyncio.AbstractEventLoop) -> AsyncI
 
     scheduler.add_job(
         fire, trigger="cron", day_of_week="mon-fri",
-        hour="23", minute="15,20,25,30,35,40,45,50,55",
+        hour="8", minute="15,20,25,30,35,40,45,50,55",
     )
     scheduler.add_job(
         fire, trigger="cron", day_of_week="mon-fri",
-        hour="0", minute="0",
+        hour="9", minute="0,5,10",
     )
     return scheduler
 
