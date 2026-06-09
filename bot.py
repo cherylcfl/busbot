@@ -83,10 +83,9 @@ def fmt_arrival(eta_dt, now) -> tuple:
     time_str = eta_dt.strftime("%I:%M%p").lstrip("0").lower()
     return time_str, mins
 
-def build_bus_section(services: list[dict], buses: set = None, limit: int = 5, label: str = "*🚌 Bus timings here!!*") -> str:
+def build_bus_section(services: list[dict], buses: set = None, limit: int = 5) -> str:
     """Chronological list format for default /now view."""
     now    = datetime.now(SGT)
-    lines  = [f"{label}"]
     events = []
 
     for svc in services:
