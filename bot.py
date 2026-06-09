@@ -319,8 +319,8 @@ def setup_fixed_jobs(app, loop):
     scheduler.add_job(
         evening_checkin,
         trigger    = "cron",
-        day_of_week= "mon-thu",
-        hour       = "23",
+        day_of_week= "sun,mon,tue,wed,thu",
+        hour       = "22",
         minute     = "0",
         id         = "evening_checkin",
         replace_existing=True,
