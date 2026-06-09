@@ -86,7 +86,7 @@ def fmt_arrival(eta_dt, now) -> tuple:
 def build_bus_section(services: list[dict], buses: set = None, limit: int = 5, label: str = "🚌 Buses") -> str:
     """Chronological list format for default /now view."""
     now    = datetime.now(SGT)
-    lines  = [f"{label}\n"]
+    lines  = [f"{label}"]
     events = []
 
     for svc in services:
@@ -145,7 +145,7 @@ def build_bus_section_expand(services: list[dict], label: str) -> str:
 async def build_message(profile_key: str, expand: bool = False) -> str:
     profile = PROFILES[profile_key]
     now_str = datetime.now(SGT).strftime("%I:%M %p")
-    header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 30}"
+    header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 15}"
 
     sections = [header, ""]
 
@@ -163,7 +163,7 @@ async def build_message(profile_key: str, expand: bool = False) -> str:
     else:
         if profile_key == "home":
             # Expand: all buses at 81189 + all buses at 81181
-            for stop, label in [("81189", "🚌 All Buses at Stop 81189 (Opp Blk 44)"),
+            for stop, label in [("81189", "🚌 All Buses at Dakota Stn Exit B (81189)"),
                                  ("81181", "🚌 All Buses at Dakota Stn Exit A (81181)")]:
                 try:
                     services    = await fetch_bus_arrivals(stop)
@@ -256,7 +256,7 @@ def setup_fixed_jobs(app, loop):
         evening_checkin,
         trigger    = "cron",
         day_of_week= "sun,mon,tue,wed,thu",
-        hour       = "23",
+        hour       = "22",
         minute     = "0",
         id         = "evening_checkin",
         replace_existing=True,
@@ -298,7 +298,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Tomorrow*\n"
         "/yes — re-enable updates for tomorrow\n"
         "/no — skip updates tomorrow (e.g. WFH day)\n\n"
-        "Every Sun–Thu at 11pm I'll ask if you want updates the next day. "
+        "Every Sun–Thu at 10pm I'll ask if you want updates the next day. "
         "No reply = updates will send as usual.",
         parse_mode="Markdown"
     )
