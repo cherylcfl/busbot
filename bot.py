@@ -141,13 +141,14 @@ def build_bus_section_expand(services: list[dict], label: str) -> str:
             lines.append(f"Bus {bus_no}: {times_str}")
 
     return "\n".join(lines)
+    
 # ── Combined messages ──────────────────────────────────────────────────────────
 async def build_message(profile_key: str, expand: bool = False) -> str:
     profile = PROFILES[profile_key]
     now_str = datetime.now(SGT).strftime("%I:%M %p")
     header  = f"🕐 *{profile['label']}* — {now_str}\n{'─' * 15}"
 
-    sections = [header, ""]
+    sections = [header]
 
     if not expand:
         # Default: filtered buses at main stop
