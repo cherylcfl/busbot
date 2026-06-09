@@ -86,6 +86,7 @@ def fmt_arrival(eta_dt, now) -> tuple:
 def build_bus_section(services: list[dict], buses: set = None, limit: int = 5) -> str:
     """Chronological list format for default /now view."""
     now    = datetime.now(SGT)
+    lines  = []
     events = []
 
     for svc in services:
